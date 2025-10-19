@@ -7,4 +7,4 @@ This repository contains a polished Stata coding sample replicating key steps fr
 - Outputs are not committed; example commands print to console.
 
 Methods: binary recodes via `inlist()`, robust SEs, covariate-adjusted models, tidy structure.  
-Contact: shashvathi.hariharan_ug25@ashoka.edu.in
+Contact: shash.hari@gmail.com
