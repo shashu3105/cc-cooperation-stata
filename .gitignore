@@ -1,0 +1,17 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & temp
+*.log
+*.tmp
+*.smcl
+
+# Data/privacy (never commit raw data)
+data/
+*.dta
+*.csv
+*.xlsx
+*.sav
+*.sas7bdat
+*.rds
