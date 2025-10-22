@@ -1,257 +1,241 @@
-/**********************************************************************
-  Project : Coastline, Cooperation & Preferences (CCP)
-  Author  : Shashvathi S. Hariharan
-  Purpose : Construct vars, run balance + main specs, norms/psych distance,
-            robustness, and visuals. Data not included.
-  Notes   : Replace the `use` line with your path. Results dirs optional.
-***********************************************************************/
+/*******************************************************************************
+ Project: Coastal Climate Perceptions, Cooperation and Preferences
+ Author:  [Your Name]
+ Purpose: Analysis of coastal proximity, climate perceptions and cooperative behavior
+ Created: [Date]
+ Notes:   Cleaned and professionalized code for pre-doc application
+*******************************************************************************/
 
 version 18
 clear all
 set more off
-set seed 20251022
 
-*----------------------------*
-* 0) Setup (paths, logging)
-*----------------------------*
-local OUT "results"
-local FIG "visuals"
-cap mkdir "`OUT'"
-cap mkdir "`FIG'"
-cap log close
-log using "`OUT'/ccp_analysis.smcl", replace
+*==============================================================================*
+* 0. SETUP AND DATA LOADING
+*==============================================================================*
 
-*----------------------------*
-* 1) Load + hygiene
-*----------------------------*
-* use "path/to/your_data.dta", clear
+* Set working directory and load data
+cd "/Users/aayushagarwal/Documents/Stata/1_geopref"
+import excel "cleaned_06062024_non_pii.xlsx", sheet("Sheet1") firstrow clear
 
-* inspect raw coastline field
-cap noisily tab dist_coastline, missing
+*==============================================================================*
+* 1. VARIABLE CONSTRUCTION
+*==============================================================================*
 
-* trim strings safely
-capture confirm string variable dist_coastline
-if !_rc {
-    replace dist_coastline = strtrim(itrim(dist_coastline))
-}
+** 1.1 Treatment Variable **
+generate treatment = (prime_fisheries_1 != .)
+label var treatment "Fisheries prime treatment"
 
-* quick missingness snapshot on key vars
-misstable summarize ///
-    pgg_contribution prime_fisheries_1 dist_coastline pref_risk_1 pref_trust_2 age ///
-    shock_loss coastal_father personal_comp home_urban home_living shock_time ///
-    generations occupation_pearner
+** 1.2 Key Covariates **
 
-* basic sanity (non-fatal)
-capture assert inrange(pgg_contribution,0,100) if !missing(pgg_contribution)
-capture assert inrange(age,15,100) if !missing(age)
+* Coastal proximity
+generate coastline = (dist_coastline == "Less than 5 kms away ")
+label var coastline "Lives <5km from coastline"
 
-*-----------------------------------------*
-* 2) Treatment + covariates (clean build)
-*-----------------------------------------*
-gen byte treat = (prime_fisheries_1 < .)
-label var treat "Treatment (prime shown)"
+* Risk preferences (binary indicators)
+generate rp = (pref_risk_1 > 5) if !missing(pref_risk_1)
+generate rp_high = (pref_risk_1 > 7) if !missing(pref_risk_1)
+label var rp "High risk preference"
+label var rp_high "Very high risk preference"
 
-* Coastline categories (3 bins) + binary (<=5km)
-gen byte coastline = .
-replace coastline = 0 if !missing(dist_coastline) & strpos(dist_coastline,"Less than 5")
-replace coastline = 1 if !missing(dist_coastline) & strpos(dist_coastline,"5-20")
-replace coastline = 2 if !missing(dist_coastline) & strpos(dist_coastline,"More than 20")
-label define coastlbl 0 "Less than 5 kms" 1 "5–20 kms" 2 "More than 20 kms"
-label values coastline coastlbl
-label var coastline "Distance from coastline (categorical)"
-gen byte coast5 = (coastline==0) if !missing(coastline)
-label var coast5 "Residence <5km from coastline (binary)"
+* Trust preferences  
+generate tp = (pref_trust_2 > 5) if !missing(pref_trust_2)
+generate tp_high = inlist(pref_trust_2, 8, 9, 10) if !missing(pref_trust_2)
+label var tp "High trust preference"
+label var tp_high "Very high trust preference"
 
-* prefs / demographics / experience (guard for missing)
-gen byte rp    = (pref_risk_1  > 5) if !missing(pref_risk_1)
-gen byte rp_h  = (pref_risk_1  > 7) if !missing(pref_risk_1)
-gen byte tp    = (pref_trust_2 > 5) if !missing(pref_trust_2)
-gen byte tp_h  = inlist(pref_trust_2,8,9,10) if !missing(pref_trust_2)
+* Climate shock experiences
+generate loss_experience = (shock_loss == 1) if !missing(shock_loss)
+generate recent_shock = inlist(shock_time, 1, 2) if !missing(shock_time)
+label var loss_experience "Experienced asset/life loss from weather"
+label var recent_shock "Weather shock in past year"
 
-gen byte loss_d         = (shock_loss==1)             if !missing(shock_loss)
-gen byte coast_fd       = (coastal_father==1)         if !missing(coastal_father)
-gen byte personal_compd = (personal_comp!="No")       if !missing(personal_comp)
-gen byte home_rurald    = (home_urban==2)             if !missing(home_urban)
-gen byte home_livingd   = (home_living==1)            if !missing(home_living)
-gen byte shock_year     = inlist(shock_time,1,2)      if !missing(shock_time)
-gen byte generation_d   = (generations=="More than 3 generations of my family have resided here") ///
-                         if !missing(generations)
-gen byte self_employed_d= (occupation_pearner==2)     if !missing(occupation_pearner)
+* Family coastal background
+generate father_coastal = (coastal_father == 1) if !missing(coastal_father)
+generate mother_coastal = (coastal_mother == 1) if !missing(coastal_mother)
+generate grandfather_coastal = (coastal_life_gf == 1) if !missing(coastal_life_gf)
+label var father_coastal "Father born in coastal area"
+label var mother_coastal "Mother born in coastal area"
+label var grandfather_coastal "Grandfather lived near coast"
 
-label var rp               "Risk pref (>5)"
-label var tp               "Trust pref (>5)"
-label var loss_d           "Experienced climate-related loss"
-label var coast_fd         "Father born on coast"
-label var personal_compd   "Owns personal computer"
-label var home_rurald      "Rural residence"
-label var home_livingd     "Same home since birth"
-label var shock_year       "Extreme weather in last year"
-label var generation_d     "3+ generations in same place"
-label var self_employed_d  "Self-employed earner"
+* Occupational variables
+generate occ_weather_impact = (Other_pe == 3 | Other_pe == 4) if !missing(Other_pe)
+generate fisheries_occupation = (occup_agri_fish_pe == "2") if !missing(occup_agri_fish_pe)
+label var occ_weather_impact "Occupation weather-sensitive"
+label var fisheries_occupation "Primary earner in fisheries"
 
-* outcomes
-summ pgg_contribution, detail
-gen byte pgg_contri_high = (pgg_contribution>50) if !missing(pgg_contribution)
-label var pgg_contri_high "High contribution (>50)"
+* Demographic controls
+generate female = (gender == "Female ") if !missing(gender)
+generate rural = (home_urban == 2) if !missing(home_urban)
+generate computer_access = (personal_comp != "No ") if !missing(personal_comp)
+generate multi_generation = (generations == "More than 3 generations of my family have resided here ") if !missing(generations)
+generate self_employed = (occupation_pearner == 2) if !missing(occupation_pearner)
+generate low_income = (hh_income == 1) if !missing(hh_income)
+generate malayalam = (language == 3) if !missing(language)
+generate osc_member = (osc_memberx == 1) if !missing(osc_memberx)
 
-* quick corr (sanity)
-capture noisily corr pgg_contribution coast5
+label var female "Female"
+label var rural "Rural residence" 
+label var computer_access "Computer access"
+label var multi_generation "Multi-generational residence"
+label var self_employed "Self-employed"
+label var low_income "Low income (<5 lakhs)"
+label var malayalam "Survey in Malayalam"
+label var osc_member "OSC member"
 
-*-----------------------------------------*
-* 3) Randomization doc + balance
-*-----------------------------------------*
-tab prime_fisheries_1, missing
-tab treat, missing
+*==============================================================================*
+* 2. OUTCOME VARIABLES
+*==============================================================================*
 
-tabstat age rp tp coast5 generation_d loss_d coast_fd self_employed_d home_rurald, ///
-    by(treat) stat(mean sd n)
+** 2.1 Cooperation Outcomes **
+generate high_contributor = (pgg_contribution > 50) if !missing(pgg_contribution)
+generate max_contributor = (pgg_contribution == 100) if !missing(pgg_contribution)
+label var high_contributor "PGG contribution > 50"
+label var max_contributor "PGG contribution = 100"
 
-foreach v in age rp tp coast5 generation_d loss_d coast_fd self_employed_d home_rurald {
-    quietly reg `v' treat, vce(robust)
-    di as res "Balance: `v' on treat  |  b=" %6.3f _b[treat] "  p=" %6.3f _p[treat]
-}
+** 2.2 Social Norms Outcomes **
+* (Variables already in dataset: normative_judgement, ne_cooperation, etc.)
 
-*-----------------------------------------*
-* 4) Main specs (robust) + heterogeneity
-*-----------------------------------------*
-* (A) continuous outcome
-reg pgg_contribution treat generation_d coast5 tp rp age ///
-    coast_fd loss_d personal_compd home_rurald, vce(robust)
+** 2.3 Psychological Distance Variables **
+local psych_vars psych_distance1_1 psych_distance1_2 psych_distance1_3 psych_distance1_4
 
-* (B) heterogeneity: treatment x coast5
-reg pgg_contribution i.treat##i.coast5 c.tp c.rp c.age ///
-    i.generation_d i.coast_fd i.loss_d i.personal_compd i.home_rurald, vce(robust)
-margins coast5, dydx(treat)
-marginsplot, title("Treatment effect on cooperation by coastal proximity (<5km)") ///
-    name(mp1, replace)
-* graph export "`FIG'/margins_treat_by_coast5.png", width(1600) replace
-
-* (C) binary outcome: LPM vs logit + AMEs
-reg   pgg_contri_high i.treat##i.coast5 c.tp c.rp c.age ///
-      i.generation_d i.coast_fd i.loss_d i.personal_compd i.home_rurald, vce(robust)
-logit pgg_contri_high i.treat##i.coast5 c.tp c.rp c.age ///
-      i.generation_d i.coast_fd i.loss_d i.personal_compd i.home_rurald, vce(robust)
-margins, dydx(treat) at(coast5=(0 1))
-marginsplot, title("AME of treatment on High Contribution (>50)") name(mp2, replace)
-* graph export "`FIG'/margins_treat_highcontrib.png", width(1600) replace
-
-*-----------------------------------------*
-* 5) Norms outcomes (loop) + Bonferroni
-*-----------------------------------------*
-local norms normative_judgement ne_cooperation ee_same_comm ee_diff_comm ///
-            sanctions_binary invisible_sanction visible_sanction
-
-* drop missing vars from the list, gracefully
-local keepnorms ""
-foreach y of local norms {
-    capture confirm variable `y'
-    if !_rc local keepnorms "`keepnorms' `y'"
-    else di as txt "Note: `y' not found; skipping."
-}
-
-tempname H
-postfile H str24 outcome float b se p using "`OUT'/norms_results.dta", replace
-foreach y of local keepnorms {
-    quietly reg `y' i.treat c.tp c.rp c.age i.coast5 i.generation_d i.coast_fd i.loss_d ///
-        i.self_employed_d i.personal_compd i.home_rurald i.home_livingd, vce(robust)
-    matrix T = r(table)
-    post H ("`y'") (T[1,1]) (T[2,1]) (T[4,1])   // treat: coef, se, p
-}
-postclose H
-capture noisily {
-    use "`OUT'/norms_results.dta", clear
-    gen p_bonf = min(p*_N,1)
-    order outcome b se p p_bonf
-    export delimited using "`OUT'/norms_results.csv", replace
-}
-
-*-----------------------------------------*
-* 6) Psychological distance (build + run)
-*-----------------------------------------*
-* build dummies only if source items exist
-forvalues i = 1/4 {
+foreach i in 1 2 3 4 {
     capture confirm variable psych_distance1_`i'
-    if !_rc gen byte pd_cc`i'd = inlist(psych_distance1_`i',1,2) if !missing(psych_distance1_`i')
+    if _rc == 0 {
+        generate pd_local_`i' = inlist(psych_distance1_`i', 1, 2) if !missing(psych_distance1_`i')
+        label var pd_local_`i' "Psych distance dimension `i'"
+    }
 }
-capture confirm variable psych_distance2_1
-if !_rc gen byte pd_cc5d = inlist(psych_distance2_1,1,2,3) if !missing(psych_distance2_1)
 
-capture confirm variable psych_distance3_1
-if !_rc gen byte pd_cc6d = inlist(psych_distance3_1,1,2) if !missing(psych_distance3_1)
+*==============================================================================*
+* 3. DESCRIPTIVE STATISTICS AND BALANCE CHECKS
+*==============================================================================*
 
+** 3.1 Treatment Assignment **
+tab treatment
+tab treatment, su(pgg_contribution)
+
+** 3.2 Balance Tests **
+local balance_vars age female rp tp coastline father_coastal loss_experience ///
+                  rural computer_access multi_generation self_employed low_income
+
+foreach var of local balance_vars {
+    di "Balance test: `var'"
+    reg `var' treatment, vce(robust)
+}
+
+*==============================================================================*
+* 4. MAIN REGRESSION ANALYSES
+*==============================================================================*
+
+** 4.1 Primary Cooperation Results **
+
+* Baseline specification
+regress pgg_contribution treatment multi_generation coastline tp rp age ///
+    father_coastal loss_experience computer_access rural, vce(robust)
+
+* Extended controls
+regress pgg_contribution treatment multi_generation coastline tp rp age ///
+    father_coastal loss_experience computer_access rural female recent_shock ///
+    mother_coastal grandfather_coastal occ_weather_impact fisheries_occupation ///
+    malayalam low_income osc_member, vce(robust)
+
+* Binary outcomes
+regress high_contributor treatment multi_generation coastline tp rp age ///
+    father_coastal loss_experience computer_access rural, vce(robust)
+
+regress max_contributor treatment multi_generation coastline tp rp age ///
+    father_coastal loss_experience computer_access rural, vce(robust)
+
+** 4.2 Treatment Heterogeneity by Coastal Proximity **
+regress pgg_contribution i.treatment##i.coastline multi_generation tp rp age ///
+    father_coastal loss_experience computer_access rural, vce(robust)
+
+margins coastline, dydx(treatment)
+marginsplot, title("Treatment Effect by Coastal Proximity") ///
+    ytitle("Average Treatment Effect") xtitle("Coastal Residence")
+
+** 4.3 Social Norms Outcomes **
+local norms_outcomes normative_judgement ne_cooperation ee_same_comm ee_diff_comm ///
+                     sanctions_binary invisible_sanction visible_sanction
+
+foreach outcome of local norms_outcomes {
+    capture confirm variable `outcome'
+    if _rc == 0 {
+        di "Estimating: `outcome'"
+        regress `outcome' treatment coastline tp rp age female father_coastal ///
+            loss_experience multi_generation self_employed computer_access rural, vce(robust)
+    }
+}
+
+** 4.4 Psychological Distance Outcomes **
 forvalues i = 1/4 {
-    capture confirm variable psych_distance4_`i'
-    if !_rc {
-        local j = `i' + 6
-        if inlist(`i',1,2) gen byte pd_cc`j'd = inlist(psych_distance4_`i',4,5) if !missing(psych_distance4_`i')
-        if `i'==3      gen byte pd_cc`j'd = inlist(psych_distance4_`i',1,2) if !missing(psych_distance4_`i')
-        if `i'==4      gen byte pd_cc`j'd = inlist(psych_distance4_`i',5)   if !missing(psych_distance4_`i')
+    capture confirm variable pd_local_`i'
+    if _rc == 0 {
+        di "Psychological Distance Dimension `i'"
+        regress pd_local_`i' treatment coastline tp rp age father_coastal ///
+            loss_experience computer_access rural, vce(robust)
     }
 }
-forvalues i = 1/3 {
-    capture confirm variable psych_distance5_`i'
-    if !_rc {
-        local j = `i' + 10
-        gen byte pd_cc`j'd = inlist(psych_distance5_`i',1,2) if !missing(psych_distance5_`i')
-    }
-}
-capture confirm variable psych_distance6_1
-if !_rc gen byte pd_cc14d = inlist(psych_distance6_1,1,2) if !missing(psych_distance6_1)
 
-* run models compactly
-tempname P
-postfile P str12 outcome float b se p using "`OUT'/pdist_results.dta", replace
-forvalues k = 1/14 {
-    capture confirm variable pd_cc`k'd
-    if !_rc {
-        quietly reg pd_cc`k'd treat, vce(robust)
-        quietly reg pd_cc`k'd treat coast5 tp rp age coast_fd loss_d ///
-            personal_compd home_rurald home_livingd, vce(robust)
-        matrix T = r(table)
-        post P ("pd_cc`k'd") (T[1,1]) (T[2,1]) (T[4,1])
-    }
-}
-postclose P
-capture noisily export delimited using "`OUT'/pdist_results.csv", replace
+*==============================================================================*
+* 5. ROBUSTNESS CHECKS
+*==============================================================================*
 
-*-----------------------------------------*
-* 7) Climate concern (optional)
-*-----------------------------------------*
+** 5.1 Alternative Specifications **
+foreach threshold in 40 60 70 {
+    generate high_contributor_`threshold' = (pgg_contribution > `threshold') if !missing(pgg_contribution)
+    regress high_contributor_`threshold' treatment multi_generation coastline tp rp age ///
+        father_coastal loss_experience computer_access rural, vce(robust)
+}
+
+** 5.2 Placebo Tests **
+regress father_coastal treatment coastline tp rp age multi_generation loss_experience, vce(robust)
+
+*==============================================================================*
+* 6. ADDITIONAL ANALYSES
+*==============================================================================*
+
+** 6.1 Climate Risk Perceptions **
 capture confirm variable gwrisk_personally
-if !_rc {
-    gen byte gw_risk_persd = inlist(gwrisk_personally,3,4) if !missing(gwrisk_personally)
-    label var gw_risk_persd "Low personal concern (3–4)"
+if _rc == 0 {
+    generate low_personal_concern = inlist(gwrisk_personally, 3, 4) if !missing(gwrisk_personally)
+    regress low_personal_concern treatment coastline tp rp age female father_coastal ///
+        loss_experience computer_access rural, vce(robust)
 }
 
-*-----------------------------------------*
-* 8) Robustness (placebo + thresholds)
-*-----------------------------------------*
-* placebo outcome that shouldn't move with treat
-reg coast_fd i.treat i.coast5 c.tp c.rp c.age i.generation_d i.loss_d, vce(robust)
-
-* alternate cutoffs for "high contribution"
-foreach thr in 40 60 70 {
-    gen byte high_`thr' = (pgg_contribution>`thr') if !missing(pgg_contribution)
-    logit high_`thr' i.treat##i.coast5 c.tp c.rp c.age ///
-         i.generation_d i.coast_fd i.loss_d i.personal_compd i.home_rurald, vce(robust)
-    margins, dydx(treat) at(coast5=(0 1))
+** 6.2 Life Preferences **
+capture confirm variable pref_marriage
+if _rc == 0 {
+    generate plan_marriage = (pref_marriage == 1) if !missing(pref_marriage)
+    generate plan_children = (pref_children == 1) if !missing(pref_children)
+    
+    regress plan_marriage treatment, vce(robust)
+    regress plan_children treatment, vce(robust)
 }
 
-*-----------------------------------------*
-* 9) Quick visuals (portable)
-*-----------------------------------------*
-twoway (kdensity pgg_contribution if treat==0) ///
-       (kdensity pgg_contribution if treat==1), ///
+*==============================================================================*
+* 7. OUTPUT AND VISUALIZATION
+*==============================================================================*
+
+** 7.1 Key Relationships **
+corr pgg_contribution coastline
+
+** 7.2 Distribution Plots **
+twoway (kdensity pgg_contribution if treatment == 0) ///
+       (kdensity pgg_contribution if treatment == 1), ///
        legend(order(1 "Control" 2 "Treatment")) ///
-       title("Distribution of cooperation by treatment")
-* graph export "`FIG'/kde_pgg_by_treat.png", width(1600) replace
+       title("PGG Contributions by Treatment") ///
+       xtitle("PGG Contribution") ytitle("Density")
 
-graph box pgg_contribution, over(coast5) ///
-    title("Cooperation by coastal proximity (<5km)")
-* graph export "`FIG'/box_pgg_by_coast5.png", width(1600) replace
+graph box pgg_contribution, over(coastline) ///
+    title("PGG Contributions by Coastal Proximity") ///
+    ytitle("PGG Contribution")
 
-*-----------------------------------------*
-* 10) Wrap
-*-----------------------------------------*
-di as txt "CCP analysis completed. Results in `OUT', figures in `FIG'."
-log close
+*==============================================================================*
+* 8. SESSION COMPLETION
+*==============================================================================*
+
+display "Analysis completed: `c(current_date)' at `c(current_time)'"
+describe treatment coastline pgg_contribution high_contributor
+summarize treatment coastline pgg_contribution high_contributor
