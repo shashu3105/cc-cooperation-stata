@@ -1,6 +1,6 @@
 # Coastal Climate Perceptions, Cooperation and Preferences
 
-Replication code for the CSBC Climate Risk & Cooperation project.  
+Replication code for the Climate Risk & Cooperation project.  
 Analysis of experimental survey data on climate risk perceptions and cooperative behaviour in fisheries-dependent communities (N = 1,200+).
 
 ## Data
