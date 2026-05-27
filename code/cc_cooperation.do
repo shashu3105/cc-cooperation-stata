@@ -1,10 +1,5 @@
 /*******************************************************************************
  Project: Coastal Climate Perceptions, Cooperation and Preferences
- Author:  [Your Name]
- Purpose: Analysis of coastal proximity, climate perceptions and cooperative behavior
- Created: [Date]
- Notes:   Cleaned and professionalized code for pre-doc application
-*******************************************************************************/
 
 version 18
 clear all
@@ -15,7 +10,7 @@ set more off
 *==============================================================================*
 
 * Set working directory and load data
-cd "/Users/aayushagarwal/Documents/Stata/1_geopref"
+cd "/Users/shashvathihariharan/Documents/Stata/1_geopref"
 import excel "cleaned_06062024_non_pii.xlsx", sheet("Sheet1") firstrow clear
 
 *==============================================================================*
