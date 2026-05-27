@@ -1,17 +1,14 @@
-# OS
+# Data files — never commit raw data
+*.xlsx
+*.xls
+*.csv
+*.dta
+
+# Stata output
+*.log
+*.smcl
+*.gph
+
+# OS clutter
 .DS_Store
 Thumbs.db
-
-# Logs & temp
-*.log
-*.tmp
-*.smcl
-
-# Data/privacy (never commit raw data)
-data/
-*.dta
-*.csv
-*.xlsx
-*.sav
-*.sas7bdat
-*.rds
