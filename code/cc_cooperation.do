@@ -1,5 +1,21 @@
 /*******************************************************************************
- Project: Coastal Climate Perceptions, Cooperation and Preferences
+ Project:  Coastal Climate Perceptions, Cooperation and Preferences
+ Author:   Shashvathi Hariharan
+ Date:     2024
+ 
+ Description:
+   Main analysis script for the CSBC Climate Risk & Cooperation project.
+   Covers variable construction, balance checks, treatment effect estimation,
+   heterogeneity analysis, robustness checks, and visualizations.
+   
+ Data:     cleaned_06062024_non_pii.xlsx  (non-PII, not tracked by git)
+ Output:   regression tables, distribution plots, margins plots
+
+ Notes:
+   - Set your working directory in Section 0 before running.
+   - All file paths are relative to the working directory.
+   - Data file is excluded from version control (.gitignore).
+*******************************************************************************/
 
 version 18
 clear all
@@ -9,8 +25,6 @@ set more off
 * 0. SETUP AND DATA LOADING
 *==============================================================================*
 
-* Set working directory and load data
-cd "/Users/shashvathihariharan/Documents/Stata/1_geopref"
 import excel "cleaned_06062024_non_pii.xlsx", sheet("Sheet1") firstrow clear
 
 *==============================================================================*
@@ -28,72 +42,70 @@ generate coastline = (dist_coastline == "Less than 5 kms away ")
 label var coastline "Lives <5km from coastline"
 
 * Risk preferences (binary indicators)
-generate rp = (pref_risk_1 > 5) if !missing(pref_risk_1)
+generate rp      = (pref_risk_1 > 5) if !missing(pref_risk_1)
 generate rp_high = (pref_risk_1 > 7) if !missing(pref_risk_1)
-label var rp "High risk preference"
+label var rp      "High risk preference"
 label var rp_high "Very high risk preference"
 
-* Trust preferences  
-generate tp = (pref_trust_2 > 5) if !missing(pref_trust_2)
+* Trust preferences
+generate tp      = (pref_trust_2 > 5)             if !missing(pref_trust_2)
 generate tp_high = inlist(pref_trust_2, 8, 9, 10) if !missing(pref_trust_2)
-label var tp "High trust preference"
+label var tp      "High trust preference"
 label var tp_high "Very high trust preference"
 
 * Climate shock experiences
-generate loss_experience = (shock_loss == 1) if !missing(shock_loss)
-generate recent_shock = inlist(shock_time, 1, 2) if !missing(shock_time)
+generate loss_experience = (shock_loss == 1)       if !missing(shock_loss)
+generate recent_shock    = inlist(shock_time, 1, 2) if !missing(shock_time)
 label var loss_experience "Experienced asset/life loss from weather"
-label var recent_shock "Weather shock in past year"
+label var recent_shock    "Weather shock in past year"
 
 * Family coastal background
-generate father_coastal = (coastal_father == 1) if !missing(coastal_father)
-generate mother_coastal = (coastal_mother == 1) if !missing(coastal_mother)
+generate father_coastal      = (coastal_father  == 1) if !missing(coastal_father)
+generate mother_coastal      = (coastal_mother  == 1) if !missing(coastal_mother)
 generate grandfather_coastal = (coastal_life_gf == 1) if !missing(coastal_life_gf)
-label var father_coastal "Father born in coastal area"
-label var mother_coastal "Mother born in coastal area"
+label var father_coastal      "Father born in coastal area"
+label var mother_coastal      "Mother born in coastal area"
 label var grandfather_coastal "Grandfather lived near coast"
 
 * Occupational variables
-generate occ_weather_impact = (Other_pe == 3 | Other_pe == 4) if !missing(Other_pe)
-generate fisheries_occupation = (occup_agri_fish_pe == "2") if !missing(occup_agri_fish_pe)
-label var occ_weather_impact "Occupation weather-sensitive"
+generate occ_weather_impact   = (Other_pe == 3 | Other_pe == 4)          if !missing(Other_pe)
+generate fisheries_occupation = (occup_agri_fish_pe == "2")              if !missing(occup_agri_fish_pe)
+label var occ_weather_impact   "Occupation weather-sensitive"
 label var fisheries_occupation "Primary earner in fisheries"
 
 * Demographic controls
-generate female = (gender == "Female ") if !missing(gender)
-generate rural = (home_urban == 2) if !missing(home_urban)
-generate computer_access = (personal_comp != "No ") if !missing(personal_comp)
-generate multi_generation = (generations == "More than 3 generations of my family have resided here ") if !missing(generations)
-generate self_employed = (occupation_pearner == 2) if !missing(occupation_pearner)
-generate low_income = (hh_income == 1) if !missing(hh_income)
-generate malayalam = (language == 3) if !missing(language)
-generate osc_member = (osc_memberx == 1) if !missing(osc_memberx)
+generate female           = (gender           == "Female ")                                       if !missing(gender)
+generate rural            = (home_urban        == 2)                                               if !missing(home_urban)
+generate computer_access  = (personal_comp     != "No ")                                           if !missing(personal_comp)
+generate multi_generation = (generations       == "More than 3 generations of my family have resided here ") if !missing(generations)
+generate self_employed    = (occupation_pearner == 2)                                              if !missing(occupation_pearner)
+generate low_income       = (hh_income         == 1)                                               if !missing(hh_income)
+generate malayalam        = (language          == 3)                                               if !missing(language)
+generate osc_member       = (osc_memberx       == 1)                                               if !missing(osc_memberx)
 
-label var female "Female"
-label var rural "Rural residence" 
-label var computer_access "Computer access"
+label var female           "Female"
+label var rural            "Rural residence"
+label var computer_access  "Computer access"
 label var multi_generation "Multi-generational residence"
-label var self_employed "Self-employed"
-label var low_income "Low income (<5 lakhs)"
-label var malayalam "Survey in Malayalam"
-label var osc_member "OSC member"
+label var self_employed    "Self-employed"
+label var low_income       "Low income (<5 lakhs)"
+label var malayalam        "Survey in Malayalam"
+label var osc_member       "OSC member"
 
 *==============================================================================*
 * 2. OUTCOME VARIABLES
 *==============================================================================*
 
 ** 2.1 Cooperation Outcomes **
-generate high_contributor = (pgg_contribution > 50) if !missing(pgg_contribution)
-generate max_contributor = (pgg_contribution == 100) if !missing(pgg_contribution)
+generate high_contributor = (pgg_contribution > 50)   if !missing(pgg_contribution)
+generate max_contributor  = (pgg_contribution == 100) if !missing(pgg_contribution)
 label var high_contributor "PGG contribution > 50"
-label var max_contributor "PGG contribution = 100"
+label var max_contributor  "PGG contribution = 100"
 
 ** 2.2 Social Norms Outcomes **
 * (Variables already in dataset: normative_judgement, ne_cooperation, etc.)
 
 ** 2.3 Psychological Distance Variables **
-local psych_vars psych_distance1_1 psych_distance1_2 psych_distance1_3 psych_distance1_4
-
 foreach i in 1 2 3 4 {
     capture confirm variable psych_distance1_`i'
     if _rc == 0 {
@@ -112,7 +124,7 @@ tab treatment, su(pgg_contribution)
 
 ** 3.2 Balance Tests **
 local balance_vars age female rp tp coastline father_coastal loss_experience ///
-                  rural computer_access multi_generation self_employed low_income
+                   rural computer_access multi_generation self_employed low_income
 
 foreach var of local balance_vars {
     di "Balance test: `var'"
@@ -130,9 +142,9 @@ regress pgg_contribution treatment multi_generation coastline tp rp age ///
     father_coastal loss_experience computer_access rural, vce(robust)
 
 * Extended controls
-regress pgg_contribution treatment multi_generation coastline tp rp age ///
-    father_coastal loss_experience computer_access rural female recent_shock ///
-    mother_coastal grandfather_coastal occ_weather_impact fisheries_occupation ///
+regress pgg_contribution treatment multi_generation coastline tp rp age         ///
+    father_coastal loss_experience computer_access rural female recent_shock     ///
+    mother_coastal grandfather_coastal occ_weather_impact fisheries_occupation  ///
     malayalam low_income osc_member, vce(robust)
 
 * Binary outcomes
@@ -177,14 +189,14 @@ forvalues i = 1/4 {
 * 5. ROBUSTNESS CHECKS
 *==============================================================================*
 
-** 5.1 Alternative Specifications **
+** 5.1 Alternative Contribution Thresholds **
 foreach threshold in 40 60 70 {
     generate high_contributor_`threshold' = (pgg_contribution > `threshold') if !missing(pgg_contribution)
     regress high_contributor_`threshold' treatment multi_generation coastline tp rp age ///
         father_coastal loss_experience computer_access rural, vce(robust)
 }
 
-** 5.2 Placebo Tests **
+** 5.2 Placebo Test **
 regress father_coastal treatment coastline tp rp age multi_generation loss_experience, vce(robust)
 
 *==============================================================================*
@@ -202,9 +214,9 @@ if _rc == 0 {
 ** 6.2 Life Preferences **
 capture confirm variable pref_marriage
 if _rc == 0 {
-    generate plan_marriage = (pref_marriage == 1) if !missing(pref_marriage)
-    generate plan_children = (pref_children == 1) if !missing(pref_children)
-    
+    generate plan_marriage  = (pref_marriage  == 1) if !missing(pref_marriage)
+    generate plan_children  = (pref_children  == 1) if !missing(pref_children)
+
     regress plan_marriage treatment, vce(robust)
     regress plan_children treatment, vce(robust)
 }
@@ -219,12 +231,12 @@ corr pgg_contribution coastline
 ** 7.2 Distribution Plots **
 twoway (kdensity pgg_contribution if treatment == 0) ///
        (kdensity pgg_contribution if treatment == 1), ///
-       legend(order(1 "Control" 2 "Treatment")) ///
-       title("PGG Contributions by Treatment") ///
+       legend(order(1 "Control" 2 "Treatment"))       ///
+       title("PGG Contributions by Treatment")        ///
        xtitle("PGG Contribution") ytitle("Density")
 
-graph box pgg_contribution, over(coastline) ///
-    title("PGG Contributions by Coastal Proximity") ///
+graph box pgg_contribution, over(coastline)           ///
+    title("PGG Contributions by Coastal Proximity")   ///
     ytitle("PGG Contribution")
 
 *==============================================================================*
@@ -232,5 +244,5 @@ graph box pgg_contribution, over(coastline) ///
 *==============================================================================*
 
 display "Analysis completed: `c(current_date)' at `c(current_time)'"
-describe treatment coastline pgg_contribution high_contributor
+describe  treatment coastline pgg_contribution high_contributor
 summarize treatment coastline pgg_contribution high_contributor
